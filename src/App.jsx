@@ -1,8 +1,18 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { StickyNote, BookOpen } from 'lucide-react'
+import { StickyNote, BookOpen, LogOut, User } from 'lucide-react'
+import { useAuth } from './contexts/AuthContext'
 
 function App() {
   const location = useLocation()
+  const { user, signOut } = useAuth()
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -18,31 +28,49 @@ function App() {
                 Daily Task & Notes
               </span>
             </div>
-            
-            <div className="flex space-x-1">
-              <Link
-                to="/"
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  location.pathname === '/'
-                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-2 border-blue-200 dark:border-blue-700'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 border-2 border-transparent'
-                }`}
-              >
-                <StickyNote size={18} />
-                <span className="hidden sm:inline">Tasks</span>
-              </Link>
-              
-              <Link
-                to="/notes"
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  location.pathname === '/notes'
-                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-2 border-green-200 dark:border-green-700'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 border-2 border-transparent'
-                }`}
-              >
-                <BookOpen size={18} />
-                <span className="hidden sm:inline">Rich Notes</span>
-              </Link>
+
+            <div className="flex items-center gap-4">
+              <div className="flex space-x-1">
+                <Link
+                  to="/"
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                    location.pathname === '/'
+                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-2 border-blue-200 dark:border-blue-700'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 border-2 border-transparent'
+                  }`}
+                >
+                  <StickyNote size={18} />
+                  <span className="hidden sm:inline">Tasks</span>
+                </Link>
+
+                <Link
+                  to="/notes"
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                    location.pathname === '/notes'
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-2 border-green-200 dark:border-green-700'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 border-2 border-transparent'
+                  }`}
+                >
+                  <BookOpen size={18} />
+                  <span className="hidden sm:inline">Rich Notes</span>
+                </Link>
+              </div>
+
+              {user && (
+                <div className="flex items-center gap-3 pl-4 border-l border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <User size={16} />
+                    <span className="hidden md:inline">{user.email}</span>
+                  </div>
+                  <button
+                    onClick={handleSignOut}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                  >
+                    <LogOut size={16} />
+                    <span className="hidden sm:inline">Sign out</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

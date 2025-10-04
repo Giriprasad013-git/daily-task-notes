@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 const supabase = createClient(supabaseUrl, supabaseKey)
 
@@ -36,9 +36,13 @@ export async function listTasks() {
 
 export async function addTaskDB(text, section = 'personal') {
   try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
     const { data, error } = await supabase
       .from('tasks')
       .insert({
+        user_id: user.id,
         text,
         completed: false,
         section,
@@ -137,10 +141,13 @@ export async function updateTaskSectionDB(id, section) {
 
 export async function getNotes() {
   try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return ''
+
     const { data, error } = await supabase
       .from('notes')
       .select('body')
-      .eq('id', 1)
+      .eq('user_id', user.id)
       .single()
 
     if (error && error.code !== 'PGRST116') throw error
@@ -154,9 +161,12 @@ export async function getNotes() {
 
 export async function setNotes(body) {
   try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
     const { error } = await supabase
       .from('notes')
-      .upsert({ id: 1, body })
+      .upsert({ user_id: user.id, body }, { onConflict: 'user_id' })
 
     if (error) throw error
   } catch (error) {
@@ -167,9 +177,13 @@ export async function setNotes(body) {
 
 export async function getRichNotes(section = 'personal') {
   try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return ''
+
     const { data, error } = await supabase
       .from('rich_notes')
       .select('markdown')
+      .eq('user_id', user.id)
       .eq('section', section)
       .single()
 
@@ -184,18 +198,22 @@ export async function getRichNotes(section = 'personal') {
 
 export async function setRichNotes(section = 'personal', markdown) {
   try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
     const now = new Date().toISOString()
 
     const { error } = await supabase
       .from('rich_notes')
       .upsert({
-        id: section,
+        id: `${user.id}_${section}`,
+        user_id: user.id,
         section,
         markdown,
         created_at: now,
         updated_at: now
       }, {
-        onConflict: 'section'
+        onConflict: 'user_id,section'
       })
 
     if (error) throw error
@@ -207,18 +225,18 @@ export async function setRichNotes(section = 'personal', markdown) {
 
 export async function listRichNotesSections() {
   try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
     const { data, error } = await supabase
       .from('rich_notes')
       .select('section, created_at, updated_at')
+      .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
 
     if (error) throw error
 
-    return data.map(row => ({
-      section: row.section,
-      created_at: row.created_at,
-      updated_at: row.updated_at
-    }))
+    return data.map(row => row.section)
   } catch (error) {
     console.error('Error listing rich notes sections:', error)
     return []
@@ -227,9 +245,13 @@ export async function listRichNotesSections() {
 
 export async function deleteRichNotesSection(section) {
   try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
     const { error } = await supabase
       .from('rich_notes')
       .delete()
+      .eq('user_id', user.id)
       .eq('section', section)
 
     if (error) throw error
