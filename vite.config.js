@@ -5,10 +5,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Only expose needed Postgres environment variables
-    'process.env.POSTGRES_URL': JSON.stringify(process.env.POSTGRES_URL),
-    'process.env.POSTGRES_PRISMA_URL': JSON.stringify(process.env.POSTGRES_PRISMA_URL),
-    'process.env.POSTGRES_URL_NO_SSL': JSON.stringify(process.env.POSTGRES_URL_NO_SSL),
-    'process.env.POSTGRES_URL_NON_POOLING': JSON.stringify(process.env.POSTGRES_URL_NON_POOLING),
+    // Only expose needed Supabase environment variables
+    'process.env.SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL),
+    'process.env.NEXT_PUBLIC_SUPABASE_URL': JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    'process.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY),
+    'process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY': JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
   },
 })

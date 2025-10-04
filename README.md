@@ -15,7 +15,7 @@ A modern task management and note-taking application built with React, Vite, and
 - **Frontend**: React 18, Vite, TypeScript
 - **Styling**: Tailwind CSS
 - **Icons**: Lucide React
-- **Database**: Vercel Postgres
+- **Database**: Supabase Postgres
 - **Rich Text**: React Quill
 - **Deployment**: Vercel
 
@@ -29,20 +29,43 @@ npm install
 
 ### 2. Database Setup
 
-1. Create a Vercel account and project
-2. Add a Postgres database to your Vercel project
-3. Copy the environment variables from your Vercel dashboard (Storage > Postgres > .env.local tab)
-4. Create a `.env.local` file in the root directory and add your database credentials:
+1. Create a Supabase account and project
+2. Go to your Supabase project settings and get your API keys
+3. Create a `.env.local` file in the root directory and add your Supabase credentials:
 
 ```env
-POSTGRES_URL="your_postgres_url"
-POSTGRES_PRISMA_URL="your_prisma_url"
-POSTGRES_URL_NO_SSL="your_no_ssl_url"
-POSTGRES_URL_NON_POOLING="your_non_pooling_url"
-POSTGRES_USER="your_user"
-POSTGRES_HOST="your_host"
-POSTGRES_PASSWORD="your_password"
-POSTGRES_DATABASE="your_database"
+SUPABASE_URL="your_supabase_project_url"
+SUPABASE_ANON_KEY="your_supabase_anon_key"
+NEXT_PUBLIC_SUPABASE_URL="your_supabase_project_url"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your_supabase_anon_key"
+```
+
+4. Create the required tables in your Supabase database:
+
+```sql
+-- Tasks table
+CREATE TABLE tasks (
+  id BIGSERIAL PRIMARY KEY,
+  text TEXT NOT NULL,
+  completed BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  section TEXT DEFAULT 'personal'
+);
+
+-- Notes table
+CREATE TABLE notes (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  body TEXT NOT NULL DEFAULT ''
+);
+
+-- Rich notes table
+CREATE TABLE rich_notes (
+  id TEXT PRIMARY KEY,
+  section TEXT NOT NULL,
+  markdown TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
 ```
 
 ### 3. Run the Application
@@ -57,7 +80,7 @@ Open the URL printed in the terminal (usually http://localhost:5173).
 
 1. Push your code to GitHub
 2. Connect your GitHub repository to Vercel
-3. Vercel will automatically detect the environment variables from your Postgres database
+3. Add your Supabase environment variables to Vercel's environment settings
 4. Deploy!
 
 ## Database Schema
