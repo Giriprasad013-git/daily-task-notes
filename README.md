@@ -1,30 +1,78 @@
 # Daily Task & Notes
 
-A Vite + React app rendering your custom `daily-task-tracker.tsx` component with Tailwind CSS and lucide-react icons.
+A modern task management and note-taking application built with React, Vite, and Vercel Postgres.
 
-## Scripts
-- dev: start the dev server
-- build: production build
-- preview: preview build
+## Features
 
-## Run locally
-1. Install deps
-2. Start dev server
+- **Task Management**: Create, edit, delete, and organize tasks in different sections
+- **Rich Notes**: Section-based rich text editor with image support
+- **Responsive Design**: Works great on desktop and mobile
+- **Dark Mode**: Toggle between light and dark themes
+- **Cloud Storage**: Data stored in Vercel Postgres for reliability and sync
+
+## Tech Stack
+
+- **Frontend**: React 18, Vite, TypeScript
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Database**: Vercel Postgres
+- **Rich Text**: React Quill
+- **Deployment**: Vercel
+
+## Setup Instructions
+
+### 1. Install Dependencies
 
 ```sh
 npm install
+```
+
+### 2. Database Setup
+
+1. Create a Vercel account and project
+2. Add a Postgres database to your Vercel project
+3. Copy the environment variables from your Vercel dashboard (Storage > Postgres > .env.local tab)
+4. Create a `.env.local` file in the root directory and add your database credentials:
+
+```env
+POSTGRES_URL="your_postgres_url"
+POSTGRES_PRISMA_URL="your_prisma_url"
+POSTGRES_URL_NO_SSL="your_no_ssl_url"
+POSTGRES_URL_NON_POOLING="your_non_pooling_url"
+POSTGRES_USER="your_user"
+POSTGRES_HOST="your_host"
+POSTGRES_PASSWORD="your_password"
+POSTGRES_DATABASE="your_database"
+```
+
+### 3. Run the Application
+
+```sh
 npm run dev
 ```
 
-Open the URL printed in the terminal.# React + Vite
+Open the URL printed in the terminal (usually http://localhost:5173).
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Deployment
 
-Currently, two official plugins are available:
+1. Push your code to GitHub
+2. Connect your GitHub repository to Vercel
+3. Vercel will automatically detect the environment variables from your Postgres database
+4. Deploy!
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Database Schema
 
-## Expanding the ESLint configuration
+The application automatically creates the following tables:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **tasks**: Stores task data with sections and completion status
+- **notes**: Simple text notes storage
+- **rich_notes**: Section-based rich text content
+
+## Migration from SQLite
+
+If you're migrating from the previous SQLite version:
+
+1. Export your existing data
+2. Follow the setup instructions above
+3. The database will be automatically initialized on first run
+4. Manually import your data if needed

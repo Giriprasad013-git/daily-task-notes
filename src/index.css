@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* App base styles */
+html, body, #root {
+  height: 100%;
+}
+
+/* Quill rich text editor styles */
+.ql-toolbar {
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.dark .ql-toolbar {
+  border-bottom-color: #334155 !important;
+  background: #0f172a !important;
+  color: #f1f5f9 !important;
+}
+
+.ql-container {
+  border: none !important;
+  font-size: 16px !important;
+}
+
+.ql-editor {
+  min-height: calc(80vh - 60px) !important;
+  padding: 2rem !important;
+  font-family: ui-sans-serif, system-ui, sans-serif !important;
+  line-height: 1.6 !important;
+}
+
+.dark .ql-editor {
+  background: #020617 !important;
+  color: #f1f5f9 !important;
+}
+
+.ql-editor h1, .ql-editor h2, .ql-editor h3, .ql-editor h4, .ql-editor h5, .ql-editor h6 {
+  margin-top: 1.5rem !important;
+  margin-bottom: 1rem !important;
+  font-weight: 600 !important;
+}
+
+.ql-editor p {
+  margin-bottom: 1rem !important;
+}
+
+.ql-editor blockquote {
+  border-left: 4px solid #3b82f6 !important;
+  padding-left: 1rem !important;
+  margin: 1rem 0 !important;
+  font-style: italic !important;
+}
+
+.dark .ql-editor blockquote {
+  border-left-color: #60a5fa !important;
+}
