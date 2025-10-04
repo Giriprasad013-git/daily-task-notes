@@ -5,7 +5,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Make environment variables available in the client
-    'process.env': process.env,
+    // Only expose needed Postgres environment variables
+    'process.env.POSTGRES_URL': JSON.stringify(process.env.POSTGRES_URL),
+    'process.env.POSTGRES_PRISMA_URL': JSON.stringify(process.env.POSTGRES_PRISMA_URL),
+    'process.env.POSTGRES_URL_NO_SSL': JSON.stringify(process.env.POSTGRES_URL_NO_SSL),
+    'process.env.POSTGRES_URL_NON_POOLING': JSON.stringify(process.env.POSTGRES_URL_NON_POOLING),
   },
 })
