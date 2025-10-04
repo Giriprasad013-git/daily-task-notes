@@ -123,7 +123,7 @@ export default function RichNotes() {
       } finally {
         setIsSaving(false)
       }
-    }, 1000) // Wait 1 second after last keystroke
+    }, 500) // Wait 1 second after last keystroke
   }, [currentSection, loadSections])
 
   const save = useCallback(async () => {
