@@ -44,15 +44,36 @@ const DailyTaskTracker = () => {
   const [newTask, setNewTask] = useState<string>("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState<string>("");
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const savedTheme = localStorage.getItem("theme");
+    return (savedTheme as "light" | "dark") || "light";
+  });
   const [completedPage, setCompletedPage] = useState<number>(1);
   const [currentSection, setCurrentSection] = useState<string>("all");
-  const [sections, setSections] = useState<Section[]>([
+  const defaultSections: Section[] = [
     { id: "work", name: "Work", color: "blue", icon: "💼" },
     { id: "personal", name: "Personal", color: "green", icon: "🏠" },
     { id: "urgent", name: "Urgent", color: "red", icon: "🚨" },
     { id: "ideas", name: "Ideas", color: "purple", icon: "💡" },
-  ]);
+  ];
+  const [sections, setSections] = useState<Section[]>(() => {
+    const savedSections = localStorage.getItem("task-sections");
+    if (savedSections) {
+      try {
+        const parsedSections = JSON.parse(savedSections);
+        if (Array.isArray(parsedSections) && parsedSections.length > 0) {
+          // Merge: keep default sections + add any new custom ones
+          const customSections = parsedSections.filter(
+            (s) => !defaultSections.find((d) => d.id === s.id)
+          );
+          return [...defaultSections, ...customSections];
+        }
+      } catch (e) {
+        console.error("Failed to parse saved sections:", e);
+      }
+    }
+    return defaultSections;
+  });
   const [newSectionName, setNewSectionName] = useState<string>("");
   const [showAddSection, setShowAddSection] = useState<boolean>(false);
   const [currentDate] = useState(
@@ -66,26 +87,13 @@ const DailyTaskTracker = () => {
 
   const COMPLETED_TASKS_PER_PAGE = 5;
 
-  // Load from SQLite on mount
+  // Load from database on mount
   useEffect(() => {
     (async () => {
       try {
         const [t, n] = await Promise.all([listTasks(), getNotesDB()]);
         setTasks(t);
         setNotes(n || "");
-
-        // Load saved sections from localStorage
-        const savedSections = localStorage.getItem("task-sections");
-        if (savedSections) {
-          try {
-            const parsedSections = JSON.parse(savedSections);
-            if (Array.isArray(parsedSections) && parsedSections.length > 0) {
-              setSections(parsedSections);
-            }
-          } catch (e) {
-            console.error("Failed to parse saved sections:", e);
-          }
-        }
       } catch (e) {
         console.error("Failed to load data", e);
       }
@@ -97,8 +105,9 @@ const DailyTaskTracker = () => {
     localStorage.setItem("task-sections", JSON.stringify(sections));
   }, [sections]);
 
-  // Theme toggle via Tailwind class strategy
+  // Save theme to localStorage whenever it changes
   useEffect(() => {
+    localStorage.setItem("theme", theme);
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
 
