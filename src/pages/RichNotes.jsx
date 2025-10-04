@@ -19,6 +19,7 @@ export default function RichNotes() {
   const [showAddSection, setShowAddSection] = useState(false)
   const [richNotesSections, setRichNotesSections] = useState([])
   const quillRef = useRef(null)
+  const saveTimeoutRef = useRef(null)
 
   const loadContent = useCallback(async () => {
     try {
@@ -41,7 +42,7 @@ export default function RichNotes() {
   useEffect(() => {
     loadContent()
     loadSections()
-    
+
     // Load saved sections from localStorage
     const savedSections = localStorage.getItem('task-sections')
     if (savedSections) {
@@ -52,6 +53,13 @@ export default function RichNotes() {
         }
       } catch (e) {
         console.error('Failed to parse saved sections:', e)
+      }
+    }
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
       }
     }
   }, [loadContent, loadSections])
@@ -93,19 +101,29 @@ export default function RichNotes() {
     'link', 'image', 'video'
   ], [])
 
-  const handleContentChange = useCallback(async (value) => {
+  const handleContentChange = useCallback((value) => {
     setHtml(value)
-    setIsSaving(true)
-    
-    try {
-      await setRichNotes(currentSection, value)
-      setLastSaved(new Date())
-      loadSections() // Refresh sections list
-    } catch (error) {
-      console.error('Error saving rich notes:', error)
-    } finally {
-      setIsSaving(false)
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
     }
+
+    // Set saving indicator
+    setIsSaving(true)
+
+    // Debounce the save operation - wait 1 second after user stops typing
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await setRichNotes(currentSection, value)
+        setLastSaved(new Date())
+        loadSections() // Refresh sections list
+      } catch (error) {
+        console.error('Error saving rich notes:', error)
+      } finally {
+        setIsSaving(false)
+      }
+    }, 1000) // Wait 1 second after last keystroke
   }, [currentSection, loadSections])
 
   const save = useCallback(async () => {
