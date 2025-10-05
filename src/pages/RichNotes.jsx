@@ -1,60 +1,81 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Save, FileText, BookOpen, Folder, FolderPlus, X, BarChart3 } from 'lucide-react'
-import { getRichNotes, setRichNotes, listRichNotesSections } from '../db/postgres.js'
+import {
+  getRichNotes,
+  setRichNotes,
+  listRichNotesSections,
+  addSection as addSectionDB,
+  deleteSection as deleteSectionDB
+} from '../db/postgres.js'
+import { useAppData } from '../contexts/AppDataContext.jsx'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
 
 export default function RichNotes() {
+  // Get shared data from context
+  const {
+    sections,
+    setSections,
+    defaultSections,
+    isLoading: appLoading,
+    richNotesCache,
+    setRichNotesCache,
+    richNotesSections,
+    setRichNotesSections,
+    loadRichNotesForSection,
+  } = useAppData()
+
   const [html, setHtml] = useState('')
   const [lastSaved, setLastSaved] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
   const [currentSection, setCurrentSection] = useState('personal')
-  const [sections, setSections] = useState([
-    { id: "work", name: "Work", color: "blue", icon: "💼" },
-    { id: "personal", name: "Personal", color: "green", icon: "🏠" },
-    { id: "urgent", name: "Urgent", color: "red", icon: "🚨" },
-    { id: "ideas", name: "Ideas", color: "purple", icon: "💡" },
-  ])
   const [newSectionName, setNewSectionName] = useState('')
   const [showAddSection, setShowAddSection] = useState(false)
-  const [richNotesSections, setRichNotesSections] = useState([])
   const quillRef = useRef(null)
   const saveTimeoutRef = useRef(null)
+  const isLoadingContent = useRef(false)
+  const previousSection = useRef(currentSection)
 
-  const loadContent = useCallback(async () => {
-    try {
-      const content = await getRichNotes(currentSection)
-      setHtml(content || '')
-    } catch (error) {
-      console.error('Error loading rich notes:', error)
-    }
-  }, [currentSection])
-
-  const loadSections = useCallback(async () => {
-    try {
-      const dbSections = await listRichNotesSections()
-      setRichNotesSections(dbSections)
-    } catch (error) {
-      console.error('Error loading rich notes sections:', error)
-    }
-  }, [])
-
+  // Load content when section changes
   useEffect(() => {
-    loadContent()
-    loadSections()
+    const loadContent = async () => {
+      // Only load if section actually changed
+      if (previousSection.current === currentSection) {
+        return
+      }
 
-    // Load saved sections from localStorage
-    const savedSections = localStorage.getItem('task-sections')
-    if (savedSections) {
-      try {
-        const parsedSections = JSON.parse(savedSections)
-        if (Array.isArray(parsedSections) && parsedSections.length > 0) {
-          setSections(parsedSections)
+      previousSection.current = currentSection
+      isLoadingContent.current = true
+
+      // Check if already cached
+      const cachedContent = richNotesCache[currentSection]
+      if (cachedContent !== undefined) {
+        setHtml(cachedContent)
+        setTimeout(() => {
+          isLoadingContent.current = false
+        }, 100)
+      } else {
+        // Not cached, load from database
+        try {
+          const content = await getRichNotes(currentSection)
+          const loadedContent = content || ''
+          setHtml(loadedContent)
+          setRichNotesCache(prev => ({
+            ...prev,
+            [currentSection]: loadedContent
+          }))
+          setTimeout(() => {
+            isLoadingContent.current = false
+          }, 300)
+        } catch (error) {
+          console.error('Error loading rich notes:', error)
+          setHtml('')
+          isLoadingContent.current = false
         }
-      } catch (e) {
-        console.error('Failed to parse saved sections:', e)
       }
     }
+
+    loadContent()
 
     // Cleanup timeout on unmount
     return () => {
@@ -62,11 +83,7 @@ export default function RichNotes() {
         clearTimeout(saveTimeoutRef.current)
       }
     }
-  }, [loadContent, loadSections])
-
-  useEffect(() => {
-    loadContent()
-  }, [loadContent])
+  }, [currentSection, setRichNotesCache])
 
   const modules = useMemo(() => ({
     toolbar: {
@@ -102,7 +119,19 @@ export default function RichNotes() {
   ], [])
 
   const handleContentChange = useCallback((value) => {
+    // Always update the html state to keep editor in sync
     setHtml(value)
+
+    // Don't trigger save if we're just loading content
+    if (isLoadingContent.current) {
+      return
+    }
+
+    // Update cache immediately for instant UI
+    setRichNotesCache(prev => ({
+      ...prev,
+      [currentSection]: value
+    }))
 
     // Clear existing timeout
     if (saveTimeoutRef.current) {
@@ -117,27 +146,35 @@ export default function RichNotes() {
       try {
         await setRichNotes(currentSection, value)
         setLastSaved(new Date())
-        loadSections() // Refresh sections list
+
+        // Update rich notes sections list if this section has content
+        if (value && !richNotesSections.includes(currentSection)) {
+          setRichNotesSections(prev => [...prev, currentSection])
+        }
       } catch (error) {
         console.error('Error saving rich notes:', error)
       } finally {
         setIsSaving(false)
       }
-    }, 1000) // Wait 1 second after last keystroke s
-  }, [currentSection, loadSections])
+    }, 1000)
+  }, [currentSection, richNotesSections, setRichNotesCache, setRichNotesSections])
 
   const save = useCallback(async () => {
     setIsSaving(true)
     try {
       await setRichNotes(currentSection, html)
       setLastSaved(new Date())
-      loadSections() // Refresh sections list
+
+      // Update rich notes sections list if this section has content
+      if (html && !richNotesSections.includes(currentSection)) {
+        setRichNotesSections(prev => [...prev, currentSection])
+      }
     } catch (error) {
       console.error('Error saving rich notes:', error)
     } finally {
       setIsSaving(false)
     }
-  }, [html, currentSection, loadSections])
+  }, [html, currentSection, richNotesSections, setRichNotesSections])
 
   const handleSwitchSection = (sectionId) => {
     if (sectionId !== currentSection) {
@@ -145,25 +182,28 @@ export default function RichNotes() {
     }
   }
 
-  const addSection = () => {
+  const addSection = async () => {
     if (newSectionName.trim()) {
       const colors = ['blue', 'green', 'red', 'purple', 'yellow', 'pink', 'indigo']
-      const randomColor = colors[Math.floor(Math.random() * colors.length)]
-      
-      const newSection = {
-        id: newSectionName.toLowerCase().replace(/\s+/g, '-'),
-        name: newSectionName.trim(),
-        color: randomColor,
-        icon: '📝'
-      }
+      const icons = ['📁', '🎯', '⭐', '🔥', '📋', '🎨', '🔧', '📊']
+      const randomColor = colors[sections.length % colors.length]
+      const randomIcon = icons[sections.length % icons.length]
 
-      const updatedSections = [...sections, newSection]
-      setSections(updatedSections)
-      localStorage.setItem('task-sections', JSON.stringify(updatedSections))
-      
-      setNewSectionName('')
-      setShowAddSection(false)
-      setCurrentSection(newSection.id)
+      try {
+        const newSection = await addSectionDB(
+          newSectionName.trim(),
+          randomColor,
+          randomIcon,
+          sections.length
+        )
+
+        setSections((prev) => [...prev, newSection])
+        setNewSectionName('')
+        setShowAddSection(false)
+        setCurrentSection(newSection.id)
+      } catch (error) {
+        console.error('Failed to add section:', error)
+      }
     }
   }
 
@@ -180,96 +220,99 @@ export default function RichNotes() {
     return colors[colorName] || colors.blue
   }
 
+  if (appLoading) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                {/* <h1 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-slate-100">
-                  Rich Notes
-                </h1> */}
-                <p className="text-slate-600 dark:text-slate-400">
-                  Section-wise rich text editor for detailed documentation
-                </p>
-              </div>
+    <div className="min-h-screen bg-white dark:bg-gray-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        {/* Compact Header */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-green-600" />
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Rich text editor for detailed notes
+              </p>
             </div>
-            
-            <div className="flex items-center gap-4">
+
+            <div className="flex items-center gap-3">
               {isSaving && (
                 <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                  <div className="w-4 h-4 border-2 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm font-medium">Saving...</span>
+                  <div className="w-3 h-3 border-2 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs font-medium">Saving...</span>
                 </div>
               )}
-              
+
               {lastSaved && !isSaving && (
-                <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                  <Save size={16} />
-                  <span className="text-sm font-medium">
-                    Saved at {lastSaved.toLocaleTimeString()}
+                <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                  <Save size={14} />
+                  <span className="text-xs font-medium">
+                    Saved {lastSaved.toLocaleTimeString()}
                   </span>
                 </div>
               )}
 
-              <button 
-                onClick={save} 
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
+              <button
+                onClick={save}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
               >
-                <Save size={16}/> 
-                Save Now
+                <Save size={14}/>
+                Save
               </button>
             </div>
           </div>
         </div>
 
         {/* Section Navigation */}
-        <div className="mb-6">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Folder className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Section: {sections.find(s => s.id === currentSection)?.name || 'Unknown'}
+        <div className="mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Folder className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                <h2 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {sections.find(s => s.id === currentSection)?.name || 'Unknown'}
                 </h2>
                 {richNotesSections.length > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                    <BarChart3 className="w-4 h-4" />
-                    <span>{richNotesSections.length} sections with notes</span>
-                  </div>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    ({richNotesSections.length} sections)
+                  </span>
                 )}
               </div>
 
               <button
                 onClick={() => setShowAddSection(!showAddSection)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
-                <FolderPlus size={16} />
-                Add Section
+                <FolderPlus size={14} />
+                Add
               </button>
             </div>
 
             {/* Section Tabs */}
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {sections.map((section) => (
                 <button
                   key={section.id}
                   onClick={() => handleSwitchSection(section.id)}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                     currentSection === section.id
-                      ? `${getSectionColor(section.color)} text-slate-800 dark:text-slate-200 border-2`
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 border-2 border-transparent'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
-                  <span className="text-base">{section.icon}</span>
+                  <span>{section.icon}</span>
                   <span>{section.name}</span>
                   {richNotesSections.includes(section.id) && (
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
                   )}
                 </button>
               ))}
@@ -314,21 +357,14 @@ export default function RichNotes() {
         </div>
 
         {/* Editor Container */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* Editor Header */}
-          <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Document Editor
-                </h2>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Perfect for storing code snippets, screenshots, meeting notes, and development logs
-                </p>
-              </div>
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-blue-600" />
+              <h2 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                Editor
+              </h2>
             </div>
           </div>
 
@@ -351,25 +387,25 @@ export default function RichNotes() {
         </div>
 
         {/* Tips Section */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-            <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">📝 Formatting</h3>
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              Use the toolbar for headers, lists, code blocks, and text styling
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <h3 className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-1">📝 Formatting</h3>
+            <p className="text-xs text-blue-700 dark:text-blue-300">
+              Use toolbar for rich formatting
             </p>
           </div>
-          
-          <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-            <h3 className="font-semibold text-green-900 dark:text-green-100 mb-2">🖼️ Images</h3>
-            <p className="text-sm text-green-700 dark:text-green-300">
-              Paste screenshots directly or use the image button in the toolbar
+
+          <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+            <h3 className="text-xs font-semibold text-green-900 dark:text-green-100 mb-1">🖼️ Images</h3>
+            <p className="text-xs text-green-700 dark:text-green-300">
+              Paste screenshots directly
             </p>
           </div>
-          
-          <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
-            <h3 className="font-semibold text-purple-900 dark:text-purple-100 mb-2">💾 Auto-Save</h3>
-            <p className="text-sm text-purple-700 dark:text-purple-300">
-              Your content is automatically saved as you type
+
+          <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+            <h3 className="text-xs font-semibold text-purple-900 dark:text-purple-100 mb-1">💾 Auto-Save</h3>
+            <p className="text-xs text-purple-700 dark:text-purple-300">
+              Saved automatically as you type
             </p>
           </div>
         </div>

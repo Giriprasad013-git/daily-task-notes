@@ -56,25 +56,25 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <UserPlus className="w-8 h-8 text-white" />
+            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+              <UserPlus className="w-6 h-6 text-white" />
             </div>
           </div>
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-            Create your account
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            Create account
           </h2>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Start organizing your tasks and notes
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            Get started with Daily Task & Notes
           </p>
         </div>
 
         {/* Signup Form */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 border border-slate-200 dark:border-slate-700">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
           {error && (
             <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />

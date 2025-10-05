@@ -1,12 +1,7 @@
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-const supabase = createClient(supabaseUrl, supabaseKey)
+import { supabase } from '../lib/supabase.js'
 
 export async function initDatabase() {
-  console.log('Database initialization skipped - using existing Supabase tables')
+  // No initialization needed - using existing Supabase tables
 }
 
 export async function listTasks() {
@@ -147,10 +142,13 @@ export async function getNotes() {
     const { data, error } = await supabase
       .from('notes')
       .select('body')
-      .eq('user_id', user.id)
-      .single()
+      .limit(1)
+      .maybeSingle()
 
-    if (error && error.code !== 'PGRST116') throw error
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error getting notes:', error)
+      return ''
+    }
 
     return data?.body || ''
   } catch (error) {
@@ -183,11 +181,14 @@ export async function getRichNotes(section = 'personal') {
     const { data, error } = await supabase
       .from('rich_notes')
       .select('markdown')
-      .eq('user_id', user.id)
       .eq('section', section)
-      .single()
+      .limit(1)
+      .maybeSingle()
 
-    if (error && error.code !== 'PGRST116') throw error
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error getting rich notes:', error)
+      return ''
+    }
 
     return data?.markdown || ''
   } catch (error) {
@@ -231,12 +232,14 @@ export async function listRichNotesSections() {
     const { data, error } = await supabase
       .from('rich_notes')
       .select('section, created_at, updated_at')
-      .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
 
-    if (error) throw error
+    if (error) {
+      console.error('Error listing rich notes sections:', error)
+      return []
+    }
 
-    return data.map(row => row.section)
+    return data?.map(row => row.section) || []
   } catch (error) {
     console.error('Error listing rich notes sections:', error)
     return []
@@ -251,12 +254,155 @@ export async function deleteRichNotesSection(section) {
     const { error } = await supabase
       .from('rich_notes')
       .delete()
-      .eq('user_id', user.id)
       .eq('section', section)
 
     if (error) throw error
   } catch (error) {
     console.error('Error deleting rich notes section:', error)
+    throw error
+  }
+}
+
+// Sections Management
+export async function listSections() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    const { data, error } = await supabase
+      .from('sections')
+      .select('id, name, color, icon, sort_order')
+      .order('sort_order', { ascending: true })
+
+    if (error) {
+      console.error('Error listing sections:', error)
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    console.error('Error listing sections:', error)
+    return []
+  }
+}
+
+export async function addSection(name, color, icon, sortOrder = 0) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    const id = name.toLowerCase().replace(/\s+/g, '-')
+
+    const { data, error } = await supabase
+      .from('sections')
+      .insert({
+        id: `${user.id}_${id}`,
+        user_id: user.id,
+        name,
+        color,
+        icon,
+        sort_order: sortOrder
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return {
+      id: data.id,
+      name: data.name,
+      color: data.color,
+      icon: data.icon,
+      sort_order: data.sort_order
+    }
+  } catch (error) {
+    console.error('Error adding section:', error)
+    throw error
+  }
+}
+
+export async function deleteSection(sectionId) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    const { error } = await supabase
+      .from('sections')
+      .delete()
+      .eq('id', sectionId)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('Error deleting section:', error)
+    throw error
+  }
+}
+
+export async function updateSectionOrder(sections) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    const updates = sections.map((section, index) => ({
+      id: section.id,
+      user_id: user.id,
+      name: section.name,
+      color: section.color,
+      icon: section.icon,
+      sort_order: index
+    }))
+
+    const { error } = await supabase
+      .from('sections')
+      .upsert(updates)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('Error updating section order:', error)
+    throw error
+  }
+}
+
+// User Preferences Management
+export async function getUserPreferences() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { theme: 'light' }
+
+    const { data, error } = await supabase
+      .from('user_preferences')
+      .select('theme')
+      .limit(1)
+      .maybeSingle()
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error getting user preferences:', error)
+      return { theme: 'light' }
+    }
+
+    return data || { theme: 'light' }
+  } catch (error) {
+    console.error('Error getting user preferences:', error)
+    return { theme: 'light' }
+  }
+}
+
+export async function setUserPreferences(theme) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    const { error } = await supabase
+      .from('user_preferences')
+      .upsert({
+        user_id: user.id,
+        theme,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' })
+
+    if (error) throw error
+  } catch (error) {
+    console.error('Error setting user preferences:', error)
     throw error
   }
 }
